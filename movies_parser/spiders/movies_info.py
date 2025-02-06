@@ -6,12 +6,7 @@ from movies_parser.items import MoviesParserItem
 
 class MoviesInfoSpider(scrapy.Spider):
     name = "movies_info"
-    allowed_domains = ["ru.wikipedia.org"]
-
-    def __init__(self, output_fn=None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if output_fn:
-            self.custom_feed_uri = output_fn
+    allowed_domains = ["ru.wikipedia.org", "www.imdb.com"]
 
     def start_requests(self):
         urls = ["https://ru.wikipedia.org/wiki/Категория:Фильмы_по_алфавиту"]
@@ -96,4 +91,28 @@ class MoviesInfoSpider(scrapy.Spider):
             '//th[contains(., "Год") or contains(., "Дата выхода")]/following-sibling::td//text()'
         ).getall())
 
+        
+        imdb_link = response.xpath('//th[contains(., "IMDb")]/following-sibling::td//a/@href').get()
+    
+        if imdb_link:
+            yield scrapy.Request(
+                url=response.urljoin(imdb_link),
+                callback=self.parse_imdb,
+                meta={"item": item}  # Передаем item через meta
+        )
+        else:
+            item["imdb_rating"] = None
+            yield item
+
+    def parse_imdb(self, response):
+        item = response.meta['item']
+    
+        rating = response.css('div[data-testid="hero-rating-bar__aggregate-rating__score"] span::text').get()
+        
+        # Обработка рейтинга
+        try:
+            item['imdb_rating'] = float(rating) if rating else None
+        except ValueError:
+            item['imdb_rating'] = None
+        
         yield item
