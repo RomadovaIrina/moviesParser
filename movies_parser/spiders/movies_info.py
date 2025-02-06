@@ -50,7 +50,7 @@ class MoviesInfoSpider(scrapy.Spider):
 
     def process_text(self, text_list):
         if not text_list:
-            return "Не указано"
+            return None
         clean_items = []
         for text in text_list:
             text = text.strip()
@@ -106,10 +106,7 @@ class MoviesInfoSpider(scrapy.Spider):
 
     def parse_imdb(self, response):
         item = response.meta['item']
-    
         rating = response.css('div[data-testid="hero-rating-bar__aggregate-rating__score"] span::text').get()
-        
-        # Обработка рейтинга
         try:
             item['imdb_rating'] = float(rating) if rating else None
         except ValueError:
