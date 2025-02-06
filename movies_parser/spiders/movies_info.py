@@ -9,11 +9,13 @@ class MoviesInfoSpider(scrapy.Spider):
     allowed_domains = ["ru.wikipedia.org", "www.imdb.com"]
 
     def start_requests(self):
+        """Начальные ссылки для парсинга Википедии"""
         urls = ["https://ru.wikipedia.org/wiki/Категория:Фильмы_по_алфавиту"]
         for url in urls:
             yield scrapy.Request(url=url, callback=self.parse)
 
     def parse(self, response):
+        """Парсинг текущей страницы фильмов и переход на следующие страницы"""
         current_page = response.meta.get('page', 1)
         # #mw-pages > div.mw-content-ltr > div > div:nth-child(1) > ul > li > a
         for element in response.css('#mw-pages div.mw-category-group ul li a'):
@@ -28,27 +30,32 @@ class MoviesInfoSpider(scrapy.Spider):
                 
         next_page = response.css('a:contains("Следующая страница")::attr(href)').get()
         if next_page:
-            next_page_url = response.urljoin(next_page)
-
-            parsed_url = urlparse(next_page_url)
-            query = parse_qs(parsed_url.query)
-            query['_'] = [str(current_page + 1)] 
-            
-            unique_url = urlunparse(parsed_url._replace(
-                query=urlencode(query, doseq=True)
-            ))
-            
-            unique_url = unique_url.replace('w/index.php', 'wiki')
-
+            next_page_url = self.make_next_url(response.urljoin(next_page), current_page)
             yield scrapy.Request(
-                url=unique_url,
+                url=next_page_url,
                 callback=self.parse,
                 meta={'page': current_page + 1}
             )
+    
+    def make_next_url(self, next_page_url: str, current_page: int) -> str:
+        """Обработка параметров для получения ссылки на следующую страницу"""
+        parsed_url = urlparse(next_page_url)
+        query = parse_qs(parsed_url.query)
+        query['_'] = [str(current_page + 1)] 
+            
+        unique_url = urlunparse(parsed_url._replace(
+                query=urlencode(query, doseq=True)
+        ))
+        # По умолчанию url имеют вид https://ru.wikipedia.org/w/index.php?title
+        # Такие url блокируются robots.txt, поэтому преобразуем  
+        unique_url = unique_url.replace('w/index.php', 'wiki')
+        return unique_url
 
   
 
     def process_text(self, text_list):
+        """Приведение текста полученных данных к более понятному формату
+            разбираемся с артефактами парсинга данных"""
         if not text_list:
             return None
         clean_items = []
@@ -69,6 +76,7 @@ class MoviesInfoSpider(scrapy.Spider):
 
 
     def parse_movie(self, response):
+        """Получение информации по фильму: режиссер, год/дата, жанр/жанры, страна/страны"""
         item = MoviesParserItem()
         item["title"] = response.meta['title']
         # Я намучалась с селекторами, 
