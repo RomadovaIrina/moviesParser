@@ -116,10 +116,6 @@ class MoviesInfoSpider(scrapy.Spider):
     name = "movies_info"
     allowed_domains = ["ru.wikipedia.org"]
 
-    def __init__(self, output_fn=None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if output_fn:
-            self.custom_feed_uri = output_fn
 
     def start_requests(self):
         urls = ["https://ru.wikipedia.org/wiki/Категория:Фильмы_по_алфавиту"]
