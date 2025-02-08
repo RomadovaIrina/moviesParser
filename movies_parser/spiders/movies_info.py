@@ -2,12 +2,18 @@ import scrapy
 from urllib.parse import urlencode, urlparse, parse_qs, urlunparse
 import re
 from movies_parser.items import MoviesParserItem
+import requests
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
+
+
+API_KEY = os.getenv("OMDB_API_KEY")
 
 class MoviesInfoSpider(scrapy.Spider):
     name = "movies_info"
-    allowed_domains = ["ru.wikipedia.org"]
-
+    allowed_domains = ["ru.wikipedia.org", "www.imdb.com"]
 
     def start_requests(self):
         """Начальные ссылки для парсинга Википедии"""
@@ -58,7 +64,7 @@ class MoviesInfoSpider(scrapy.Spider):
         """Приведение текста полученных данных к более понятному формату
             разбираемся с артефактами парсинга данных"""
         if not text_list:
-            return "Не указано"
+            return None
         clean_items = []
         for text in text_list:
             text = text.strip()
@@ -100,4 +106,37 @@ class MoviesInfoSpider(scrapy.Spider):
             '//th[contains(., "Год") or contains(., "Дата выхода")]/following-sibling::td//text()'
         ).getall())
 
+        
+        imdb_link = response.xpath('//th[contains(., "IMDb")]/following-sibling::td//a/@href').get()
+    
+        if imdb_link:
+            imdb_id = self.extract_imdb_id(imdb_link)
+            if imdb_id:
+                item["imdb_rating"] = self.get_imdb(imdb_id)
+            else:
+                item["imdb_rating"] = None
+        else:
+            item["imdb_rating"] = None
+
         yield item
+
+    def extract_imdb_id(self, url):
+        """Извлекаем ID фильма из ссылки IMDb"""
+        parsed_url = urlparse(url)
+        path_parts = parsed_url.path.strip('/').split('/')
+        for part in path_parts:
+            if part.startswith("tt"):  # IMDb ID всегда начинается с "tt"
+                return part
+        return None
+
+    def get_imdb(self, imdb_id):
+        """Получаем рейтинг IMDb через OMDb API"""
+        url = f"https://www.omdbapi.com/?i={imdb_id}&apikey={API_KEY}"
+        try:
+            response = requests.get(url, timeout=5).json()
+            rating = response.get("imdbRating")  # Используем .get() чтобы избежать KeyError
+            return float(rating) if rating and rating != "N/A" else None
+        except requests.RequestException:
+            return None
+        except ValueError:  # На случай других проблем с преобразованием
+            return None

@@ -12,3 +12,4 @@ class MoviesParserItem(scrapy.Item):
     director = scrapy.Field()
     country = scrapy.Field()
     year = scrapy.Field()
+    imdb_rating = scrapy.Field()
