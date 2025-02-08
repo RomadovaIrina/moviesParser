@@ -7,9 +7,7 @@ import scrapy
 from dotenv import load_dotenv
 
 from movies_parser.items import MoviesParserItem
-import requests
-import os
-from dotenv import load_dotenv
+
 
 load_dotenv()
 
