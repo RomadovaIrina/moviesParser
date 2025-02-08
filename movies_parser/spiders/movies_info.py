@@ -1,16 +1,15 @@
 import re
 from urllib.parse import urlencode, urlparse, parse_qs, urlunparse
 
+
 import scrapy
-from dotenv import load_dotenv
 
 from movies_parser.items import MoviesParserItem
 
 
 class MoviesInfoSpider(scrapy.Spider):
     name = "movies_info"
-    allowed_domains = ["ru.wikipedia.org"]
-
+    allowed_domains = ["ru.wikipedia.org", "www.imdb.com"]
 
     def start_requests(self):
         """Начальные ссылки для парсинга Википедии"""
@@ -61,7 +60,7 @@ class MoviesInfoSpider(scrapy.Spider):
         """Приведение текста полученных данных к более понятному формату
             разбираемся с артефактами парсинга данных"""
         if not text_list:
-            return "Не указано"
+            return None
         clean_items = []
         for text in text_list:
             text = text.strip()
@@ -103,4 +102,25 @@ class MoviesInfoSpider(scrapy.Spider):
             '//th[contains(., "Год") or contains(., "Дата выхода")]/following-sibling::td//text()'
         ).getall())
 
+        
+        imdb_link = response.xpath('//th[contains(., "IMDb")]/following-sibling::td//a/@href').get()
+    
+        if imdb_link:
+            yield scrapy.Request(
+                url=response.urljoin(imdb_link),
+                callback=self.parse_imdb,
+                meta={"item": item}  # Передаем item через meta
+        )
+        else:
+            item["imdb_rating"] = None
+            yield item
+
+    def parse_imdb(self, response):
+        item = response.meta['item']
+        rating = response.css('div[data-testid="hero-rating-bar__aggregate-rating__score"] span::text').get()
+        try:
+            item['imdb_rating'] = float(rating) if rating else None
+        except ValueError:
+            item['imdb_rating'] = None
+        
         yield item

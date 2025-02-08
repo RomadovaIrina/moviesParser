@@ -11,7 +11,7 @@ import re
 
 class MoviesParserPipeline:
     def process_item(self, item, spider):
-        for field in ["genre", "director", "country", "year"]:
+        for field in ["genre", "director", "country", "year", "imdb_rating"]:
             if field in item:
                 item[field] = re.sub(r"\s*\[[^\]]+\]", "", item[field]).strip()
         return item
