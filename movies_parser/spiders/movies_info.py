@@ -1,10 +1,8 @@
-import os
 import re
 from urllib.parse import urlencode, urlparse, parse_qs, urlunparse
 
-import requests
+
 import scrapy
-from dotenv import load_dotenv
 
 from movies_parser.items import MoviesParserItem
 
